@@ -1,6 +1,7 @@
 package ut
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -37,8 +38,8 @@ func (cr *CallRecords) AssertEquals(t *testing.T, exp *CallRecords) {
 			case func(actual interface{}):
 				ep(ap)
 			default:
-				if ap != ep {
-					t.Fatalf("Call %d (%s) parameter %d got %v does not match expected %v", i, c.Name, j, ap, ep)
+				if !reflect.DeepEqual(ap, ep) {
+					t.Fatalf("Call %d (%s) parameter %d got %v (%T) does not match expected %v (%T)", i, c.Name, j, ap, ap, ep, ep)
 				}
 			}
 		}
