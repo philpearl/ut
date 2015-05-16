@@ -1,3 +1,5 @@
+// Package ut implements some testing utilities. So far it includes CallTracker, which helps you build
+// mock implementations of interfaces.
 package ut
 
 import (
@@ -9,20 +11,43 @@ import (
 //
 // Build the CallTracker interface into your mocks. Use TrackCall within mock methods to track calls to the method
 // and the parameters used.
-// Within tests use AddCall to add expected method calls, and SetReturns to indicate what the calls will return
+// Within tests use AddCall to add expected method calls, and SetReturns to indicate what the calls will return.
+//
+// The tests for this package contain a full example.
+//
+//   type MyMock struct {ut.CallTracker}
+//
+//   func (m *MyMock) AFunction(p int) error {
+//  	r := m.TrackCall("AFunction", p)
+//      return NilOrError(r[0])
+//   }
+//
+//   func Something(m Functioner) {
+//      m.AFunction(37)
+//   }
+//
+//   func TestSomething(t *testing.T) {
+//  	m := &MyMock{NewCallRecords(t)}
+//      m.AddCall("AFunction", 37).SetReturns(nil)
+//
+//      Something(m)
+//
+//      m.AssertDone()
+//   }
 type CallTracker interface {
 	// AddCall() is used by tests to add an expected call to the tracker
 	AddCall(name string, params ...interface{}) CallTracker
 
-	// SetReturns() is called immediately after AddCall() to set the return values for the call.
+	// SetReturns() is called immediately after AddCall() to set the return
+	// values for the call.
 	SetReturns(returns ...interface{}) CallTracker
 
-	// TrackCall() is called within mocks to track a call to the Mock. It returns the return values
-	// registered via SetReturns()
+	// TrackCall() is called within mocks to track a call to the Mock. It
+	// returns the return values registered via SetReturns()
 	TrackCall(name string, params ...interface{}) []interface{}
 
-	// AssertDone() should be called at the end of a test to confirm all the expected calls have
-	// been made
+	// AssertDone() should be called at the end of a test to confirm all
+	// the expected calls have been made
 	AssertDone()
 }
 
