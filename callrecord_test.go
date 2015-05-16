@@ -5,19 +5,25 @@ import (
 	"testing"
 )
 
+// For this test we implement a mock of the io.Reader interface
 type MockReader struct {
 	CallTracker
 }
 
+// NewMockReader is a convenience method for creating our mock
 func NewMockReader(t *testing.T) *MockReader {
 	return &MockReader{NewCallRecords(t)}
 }
 
+// Here we implement the Read method of our mock io.Reader. This
+// records the parameters passed to the call and returns values
+// specified by the test
 func (m *MockReader) Read(p []byte) (n int, err error) {
 	r := m.TrackCall("Read", p)
 	return r[0].(int), NilOrError(r[1])
 }
 
+// This is the function we're going to test.
 func UnderTest(r io.Reader) bool {
 	p := make([]byte, 10)
 	n, _ := r.Read(p)
