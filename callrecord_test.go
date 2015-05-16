@@ -1,21 +1,3 @@
-# UT
-
-Go unit testing tools and Mocking
-
-[![GoDoc](https://godoc.org/github.com/philpearl/ut?status.svg)](https://godoc.org/github.com/philpearl/ut)
-
-[![Build Status](https://travis-ci.org/philpearl/ut.svg)](https://travis-ci.org/philpearl/ut)
-
-## What's included
-
-So far I've included a tool for building Mock implementations of interfaces. It is simple and you have to implement each mock
-method yourself, but there's no magic and it is easy to understand. I've used it successfully in one sizeable project.
-
-## Example
-
-This example is implemented as a test in this package. It creates a mock io.Reader, and tests the function UnderTest()
-
-```go
 package ut
 
 import (
@@ -85,5 +67,3 @@ func TestUnderTest(t *testing.T) {
 		m.AssertDone()
 	}
 }
-
-```

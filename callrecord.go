@@ -5,6 +5,11 @@ import (
 	"testing"
 )
 
+// CallTracker is an interface to help build mocks.
+//
+// Build the CallTracker interface into your mocks. Use TrackCall within mock methods to track calls to the method
+// and the parameters used.
+// Within tests use AddCall to add expected method calls, and SetReturns to indicate what the calls will return
 type CallTracker interface {
 	// AddCall() is used by tests to add an expected call to the tracker
 	AddCall(name string, params ...interface{}) CallTracker
@@ -53,6 +58,7 @@ type callRecords struct {
 	current int
 }
 
+// NewCallRecords creates a new call tracker
 func NewCallRecords(t *testing.T) CallTracker {
 	return &callRecords{
 		t: t,
@@ -70,6 +76,9 @@ func (cr *callRecords) SetReturns(returns ...interface{}) CallTracker {
 }
 
 func (cr *callRecords) TrackCall(name string, params ...interface{}) []interface{} {
+	if cr.current >= len(cr.calls) {
+		cr.t.Fatalf("Unexpected call to \"%s\"", name)
+	}
 	expectedCall := cr.calls[cr.current]
 	expectedCall.assert(cr.t, name, params...)
 	cr.current += 1
@@ -80,4 +89,12 @@ func (cr *callRecords) AssertDone() {
 	if cr.current < len(cr.calls) {
 		cr.t.Fatalf("Only %d of %d expected calls made", cr.current, len(cr.calls))
 	}
+}
+
+// NilOrError is a utility function for returning err from mocked methods
+func NilOrError(val interface{}) error {
+	if val == nil {
+		return nil
+	}
+	return val.(error)
 }
