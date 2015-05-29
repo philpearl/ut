@@ -57,7 +57,7 @@ type callRecord struct {
 	returns []interface{}
 }
 
-func (e *callRecord) assert(t *testing.T, name string, params ...interface{}) {
+func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 	if name != e.name {
 		t.Fatalf("Expected call to  %s, got call to %s", e.name, name)
 	}
@@ -78,13 +78,13 @@ func (e *callRecord) assert(t *testing.T, name string, params ...interface{}) {
 }
 
 type callRecords struct {
-	t       *testing.T
+	t       testing.TB
 	calls   []callRecord
 	current int
 }
 
 // NewCallRecords creates a new call tracker
-func NewCallRecords(t *testing.T) CallTracker {
+func NewCallRecords(t testing.TB) CallTracker {
 	return &callRecords{
 		t: t,
 	}
