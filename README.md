@@ -1,19 +1,51 @@
 # UT
 
-Go unit testing tools and Mocking
+UT allows you to automatically generate mock implementations of go interfaces for easy and awesome unit testing.
 
-[![GoDoc](https://godoc.org/github.com/philpearl/ut?status.svg)](https://godoc.org/github.com/philpearl/ut)
-
+[![GoDoc](https://godoc.org/github.com/philpearl/ut?status.svg)](https://godoc.org/github.com/philpearl/ut) 
 [![Build Status](https://travis-ci.org/philpearl/ut.svg)](https://travis-ci.org/philpearl/ut)
 
 ## What's included
+UT includes the following.
 
-So far I've included a tool for building Mock implementations of interfaces. It is simple and you have to implement each mock
-method yourself, but there's no magic and it is easy to understand. I've used it successfully in one sizeable project.
+- Code to help you build mock implementations of interfaces. You can say what calls you expect on the mock objects, what the 
+parameters should be and what each call should return.
+- A tool (genmock) to automatically generate mocks from interface definitions.
+
+The basic code is simple to understand and uses no magic. The auto code generation is not so simple to understand, but hopefully
+should work without you needing to look at it!
+
+The genmock tool currently only works if you can point it at the source file containing the interface type definition. I don't think it 
+will be hard to get it to generate code for an interface in any package, but it isn't there yet.
+
+## genmock
+
+genmock's parameters are as follows
+
+- filename: name of the file containing the interface definition. Must be specified.
+- interface: name of the interface to create a mock for. Must be specified.
+- mock: name of the mock object to create. Defaults to Mock<interface>.
+- outfile: name of the file hold the mock definition. Defaults to mock<interface>.go in the current directory.
+- package: name of the package to use in the mock definition. Must be specified.
+
+Install genmock with `go install github.com/philpearl/ut/genmock`
+
+You can then use it with go generate as follows. Add a go:generate comment as shown below (with no spaces within //go:generate), then run `go generate` to generate the files.
+
+```go
+package mypackage
+
+type MyInterface {
+	func MakeACall(param string) error
+}
+
+//go:generate genmock -filename=thisfile.go -interface=MyInterface -package mypackage
+```
 
 ## Example
 
-This example is implemented as a test in this package. It creates a mock io.Reader, and tests the function UnderTest()
+This example is implemented as a test in this package. It creates a mock io.Reader, and tests the function UnderTest(). In this case I've built the mock by
+hand so you can see what kind of code genmock will generate.
 
 ```go
 package ut
@@ -38,7 +70,15 @@ func NewMockReader(t *testing.T) *MockReader {
 // specified by the test
 func (m *MockReader) Read(p []byte) (n int, err error) {
 	r := m.TrackCall("Read", p)
-	return r[0].(int), NilOrError(r[1])
+	var r_0 int
+	if r[0] != nil {
+	    r_0 = r[0].(int)
+	}
+	var r_1 error
+	if r[1] != nil {
+		r_1 = r[1].(error)
+	}
+	return r_0, r_1
 }
 
 // This is the function we're going to test.
