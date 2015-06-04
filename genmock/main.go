@@ -34,6 +34,7 @@ func (v *blockVisitor) Visit(n ast.Node) ast.Visitor {
 	return v
 }
 
+// findUsedImports is an AST Visitor that notes which imports the code is using.
 type findUsedImports struct {
 	names map[string]struct{}
 }
@@ -77,12 +78,28 @@ func (v *findUsedImports) isUsed(s *ast.ImportSpec) bool {
 	return ok
 }
 
-// InterfaceVisitor walks the AST and finds interfaces
+// addImports is an AST Vistor that adds imports to the AST.
+type addImports struct {
+	imports []ast.Spec
+}
+
+func (v *addImports) Visit(n ast.Node) ast.Visitor {
+	if n, ok := n.(*ast.GenDecl); ok && n.Tok == token.IMPORT {
+		// Found our imports. Add new ones
+		n.Specs = append(n.Specs, v.imports...)
+		return nil
+	}
+	return v
+}
+
+// InterfaceVisitor walks the AST and finds interfaces.
+// It also stores the imports imported by the AST
 type InterfaceVisitor struct {
 	fset        *token.FileSet
 	name        string
 	code        string
 	packageName string
+	mockName    string
 	imports     []*ast.ImportSpec
 }
 
@@ -106,20 +123,17 @@ func (i *InterfaceVisitor) Visit(n ast.Node) ast.Visitor {
 }
 
 func (i *InterfaceVisitor) buildMockForInterface(t *ast.InterfaceType) string {
-	var buf bytes.Buffer
-
-	fi := newFindUsedImports()
-
-	nodes := []ast.Decl{}
-
 	// Mock Implementation of the interface
-	m := buildMockStruct(i.name)
-	ast.Walk(fi, m)
-	nodes = append(nodes, m)
+	mockAst, fset, err := buildBasicFile(i.packageName, i.mockName)
+	if err != nil {
+		fmt.Printf("Failed to parse basic AST. %v", err)
+		os.Exit(2)
+	}
 
 	// Method receiver for our mock interface
-	recv := buildMethodReceiver(i.name)
+	recv := buildMethodReceiver(i.mockName)
 
+	// Add methods to our mockAst for each interface method
 	for _, m := range t.Methods.List {
 		t, ok := m.Type.(*ast.FuncType)
 		if ok {
@@ -132,46 +146,33 @@ func (i *InterfaceVisitor) buildMockForInterface(t *ast.InterfaceType) string {
 			// methods are declared with the same signature
 			for _, n := range m.Names {
 				fd := buildMockMethod(recv, n.Name, t)
-				ast.Walk(fi, fd)
-				nodes = append(nodes, fd)
+
+				mockAst.Decls = append(mockAst.Decls, fd)
 			}
 		}
 	}
 
-	usedImports := []ast.Spec{}
-	utSpec := &ast.ImportSpec{
-		Path: &ast.BasicLit{
-			Kind:  token.STRING,
-			Value: "\"github.com/philpearl/ut\"",
-		},
-	}
+	// Find all the imports we're using in the mockAST
+	fi := newFindUsedImports()
+	ast.Walk(fi, mockAst)
 
+	// Pick imports out of our input AST that are used in the mock
+	usedImports := []ast.Spec{}
 	for _, is := range i.imports {
 		if fi.isUsed(is) {
 			usedImports = append(usedImports, is)
 		}
 	}
 
-	usedImports = append(usedImports, utSpec)
-
+	// Add these imports into the mock AST
 	fmt.Printf("%d used imports", len(usedImports))
+	ai := &addImports{usedImports}
+	ast.Walk(ai, mockAst)
 
-	imp := &ast.GenDecl{
-		Tok:    token.IMPORT,
-		Specs:  usedImports,
-		Lparen: token.Pos(1), // This is a hack to get all the imports to appear
-	}
+	ast.SortImports(fset, mockAst)
 
-	nodes = append([]ast.Decl{imp}, nodes...)
-
-	f := &ast.File{
-		Name:  ast.NewIdent(i.packageName),
-		Decls: nodes,
-	}
-
-	ast.SortImports(i.fset, f)
-
-	printer.Fprint(&buf, i.fset, f)
+	var buf bytes.Buffer
+	printer.Fprint(&buf, fset, mockAst)
 
 	return buf.String()
 }
@@ -216,27 +217,38 @@ func parseCodeBlock(code string) ([]ast.Stmt, error) {
 	return v.stmts, nil
 }
 
-func buildMockStruct(name string) *ast.GenDecl {
-	return &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: ast.NewIdent(fmt.Sprintf("Mock%s", name)),
-				Type: &ast.StructType{
-					Fields: &ast.FieldList{
-						List: []*ast.Field{
-							{
-								Type: &ast.SelectorExpr{
-									X:   ast.NewIdent("ut"),
-									Sel: ast.NewIdent("CallTracker"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+func buildBasicFile(packageName, mockName string) (*ast.File, *token.FileSet, error) {
+	code := fmt.Sprintf(
+		`
+package %s
+
+import (
+	"testing"
+	"github.com/philpearl/ut"
+)
+
+type %s struct {
+	ut.CallTracker
+}
+
+func New%s(t *testing.T) *%s {
+	return &%s{ut.NewCallRecords(t)}
+}
+
+func (m *%s) AddCall(name string, params ...interface{}) ut.CallTracker {
+	m.CallTracker.AddCall(name, params...)
+	return m
+}
+
+func (m *%s) SetReturns(params ...interface{}) ut.CallTracker {
+	m.CallTracker.SetReturns(params...)
+	return m
+}
+`, packageName, mockName, mockName, mockName, mockName, mockName, mockName)
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "dummy.go", code, 0)
+	return file, fset, err
 }
 
 func buildMethodReceiver(name string) *ast.FieldList {
@@ -247,7 +259,7 @@ func buildMethodReceiver(name string) *ast.FieldList {
 					ast.NewIdent("i"),
 				},
 				Type: &ast.StarExpr{
-					X: ast.NewIdent(fmt.Sprintf("Mock%s", name)),
+					X: ast.NewIdent(name),
 				},
 			},
 		},
@@ -463,17 +475,12 @@ func generateMock(f *flags) {
 		panic(err)
 	}
 
-	v := &InterfaceVisitor{fset: fset, name: f.ifName, packageName: f.packageName}
+	v := &InterfaceVisitor{fset: fset, name: f.ifName, packageName: f.packageName, mockName: f.mockName}
 	ast.Walk(v, p)
 
-	outfile := f.outfile
-	if outfile == "" {
-		outfile = fmt.Sprintf("mock%s.go", strings.ToLower(f.ifName))
-	}
-
-	err = ioutil.WriteFile(outfile, []byte(v.code), 0666)
+	err = ioutil.WriteFile(f.outfile, []byte(v.code), 0666)
 	if err != nil {
-		fmt.Printf("Failed to open %s for writing", outfile)
+		fmt.Printf("Failed to open %s for writing", f.outfile)
 		os.Exit(2)
 	}
 }
@@ -483,6 +490,7 @@ type flags struct {
 	ifName      string
 	outfile     string
 	packageName string
+	mockName    string
 }
 
 func (f *flags) validate() bool {
@@ -495,6 +503,12 @@ func (f *flags) validate() bool {
 	if f.packageName == "" {
 		return false
 	}
+	if f.outfile == "" {
+		f.outfile = fmt.Sprintf("mock%s.go", strings.ToLower(f.ifName))
+	}
+	if f.mockName == "" {
+		f.mockName = "Mock" + f.ifName
+	}
 	return true
 }
 
@@ -503,6 +517,7 @@ func (f *flags) setup() {
 	flag.StringVar(&f.ifName, "interface", "", "The interface that we should create a mock for; Must be specified.")
 	flag.StringVar(&f.outfile, "outfile", "", "The file to create the mock in. By default will use mock<interface>.go in the current directory.")
 	flag.StringVar(&f.packageName, "package", "", "Package name to use for the mock file; Must be specified.")
+	flag.StringVar(&f.mockName, "mock", "", "The name for the mock class. By default will use Mock<interface>.")
 }
 
 func main() {
