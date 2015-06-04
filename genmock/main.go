@@ -1,10 +1,5 @@
 package main
 
-// TODO:::
-// 1 Need some imports for parameters and returns used in the mocks
-// 2 A NewMockXXXX method is handy
-// 2 Some routines to allow chaining of AddCall and SetReturns
-
 import (
 	"bytes"
 	"flag"
@@ -165,10 +160,10 @@ func (i *InterfaceVisitor) buildMockForInterface(t *ast.InterfaceType) string {
 	}
 
 	// Add these imports into the mock AST
-	fmt.Printf("%d used imports", len(usedImports))
 	ai := &addImports{usedImports}
 	ast.Walk(ai, mockAst)
 
+	// Sort the imports
 	ast.SortImports(fset, mockAst)
 
 	var buf bytes.Buffer
@@ -296,12 +291,15 @@ return values.  So instead we do
 */
 func buildMockMethod(recv *ast.FieldList, name string, t *ast.FuncType) *ast.FuncDecl {
 	stmts := []ast.Stmt{}
-	p, err := storeParams(t.Params)
+	p, ellipsis, err := storeParams(t.Params)
 	if err != nil {
 		fmt.Printf("Failed to set up call parameters. %v", err)
 	}
-	stmts = append(stmts, p...)
-	p, err = trackCall(t.Results.NumFields(), name)
+	if p != nil {
+		stmts = append(stmts, p...)
+	}
+
+	p, err = trackCall(t.Results.NumFields(), name, ellipsis, t.Params)
 	if err != nil {
 		fmt.Printf("failed to track call. %v", err)
 	}
@@ -334,8 +332,8 @@ func buildMockMethod(recv *ast.FieldList, name string, t *ast.FuncType) *ast.Fun
 
 // storeParams handles parameters
 //
-// Because our parameters may contain an ellipsis we always need to add all the parameters
-// to an interface{} array
+// If the parameters include an ellipsis we need to copy parameters into
+// an interface{} array as follows.
 //
 //  params := []interface{}{}
 //  params[0] = p1
@@ -343,40 +341,38 @@ func buildMockMethod(recv *ast.FieldList, name string, t *ast.FuncType) *ast.Fun
 //  for i, p := range ellipsisParam {
 //      params[2+i]	= p
 //  }
-func storeParams(params *ast.FieldList) ([]ast.Stmt, error) {
-	code := ""
+//
+// If not it is better to add the params to the call directly for performance
+// reasons
+func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 	// Is there an ellipsis parameter?
 	listlen := len(params.List)
 	if listlen > 0 {
 		last := params.List[len(params.List)-1]
 		if _, ok := last.Type.(*ast.Ellipsis); ok {
-			code += fmt.Sprintf("\tparams := make([]interface{}, %d + len(%s))\n", params.NumFields()-1, last.Names[0].Name)
-		}
-	}
-
-	if code == "" {
-		// No ellipsis
-		code += fmt.Sprintf("\tparams := make([]interface{}, %d)\n", params.NumFields())
-	}
-
-	i := 0
-	for _, f := range params.List {
-		for _, n := range f.Names {
-			if _, ok := f.Type.(*ast.Ellipsis); ok {
-				// Ellipsis expression
-				code += fmt.Sprintf(`
+			code := fmt.Sprintf("\tparams := make([]interface{}, %d + len(%s))\n", params.NumFields()-1, last.Names[0].Name)
+			i := 0
+			for _, f := range params.List {
+				for _, n := range f.Names {
+					if _, ok := f.Type.(*ast.Ellipsis); ok {
+						// Ellipsis expression
+						code += fmt.Sprintf(`
     for j, p := range %s {
     	params[%d+j] = p
     }
 `, n.Name, i)
-			} else {
-				code += fmt.Sprintf("\tparams[%d] = %s\n", i, n.Name)
+					} else {
+						code += fmt.Sprintf("\tparams[%d] = %s\n", i, n.Name)
+					}
+					i++
+				}
 			}
-			i++
+
+			stmts, err := parseCodeBlock(code)
+			return stmts, true, err
 		}
 	}
-
-	return parseCodeBlock(code)
+	return nil, false, nil
 }
 
 // trackCall builds the ast for the call expression.
@@ -385,11 +381,26 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, error) {
 //     r := i.TrackCall("method", params...)
 //
 // If there are no return values r := is omitted
-func trackCall(numReturns int, methodName string) ([]ast.Stmt, error) {
-	if numReturns == 0 {
-		return parseCodeBlock(fmt.Sprintf("\ti.TrackCall(\"%s\", params...)", methodName))
+func trackCall(numReturns int, methodName string, ellipsis bool, params *ast.FieldList) ([]ast.Stmt, error) {
+	code := "\t"
+
+	if numReturns != 0 {
+		code += "r := "
 	}
-	return parseCodeBlock(fmt.Sprintf("\tr := i.TrackCall(\"%s\", params...)", methodName))
+	code += fmt.Sprintf("i.TrackCall(\"%s\", ", methodName)
+
+	if ellipsis {
+		code += "params...)\n"
+	} else {
+		names := []string{}
+		for _, f := range params.List {
+			for _, n := range f.Names {
+				names = append(names, n.Name)
+			}
+		}
+		code += strings.Join(names, ", ") + ")\n"
+	}
+	return parseCodeBlock(code)
 }
 
 // declReturnValues builds the return part of the call
