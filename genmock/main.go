@@ -74,51 +74,6 @@ func (v *findUsedImports) isUsed(s *ast.ImportSpec) bool {
 	return ok
 }
 
-// addImports is an AST Vistor that adds imports to the AST.
-type addImports struct {
-	imports []ast.Spec
-}
-
-func (v *addImports) Visit(n ast.Node) ast.Visitor {
-	if n, ok := n.(*ast.GenDecl); ok && n.Tok == token.IMPORT {
-		// Found our imports. Add new ones. But first we need to
-		// eliminate duplicates
-		type Imp struct {
-			path string
-			name string
-		}
-		found := map[Imp]struct{}{}
-		specs := []ast.Spec{}
-
-		addWithoutDuplicates := func(list []ast.Spec) {
-			for _, s := range n.Specs {
-				var imp Imp
-				// Extract the path and name
-				i := s.(*ast.ImportSpec)
-				imp.path = i.Path.Value
-				if i.Name != nil {
-					imp.name = i.Name.Name
-				}
-
-				// Have we seen this before
-				_, ok := found[imp]
-				if !ok {
-					// No we haven't
-					specs = append(specs, s)
-					found[imp] = struct{}{}
-				}
-			}
-		}
-
-		addWithoutDuplicates(n.Specs)
-		addWithoutDuplicates(v.imports)
-
-		n.Specs = specs
-		return nil
-	}
-	return v
-}
-
 // InterfaceVisitor walks the AST and finds interfaces.
 // It also stores the imports imported by the AST
 type InterfaceVisitor struct {
@@ -222,28 +177,6 @@ func removeFieldNames(fl *ast.FieldList) {
 		}
 	}
 	fl.List = l
-}
-
-// parseCodeBlock() parses a block of code.
-//
-// It works by embedding the code in a dummy go file with a function, then
-// extracting the AST for the code block we're interested in
-func parseCodeBlock(code string) ([]ast.Stmt, error) {
-	// Embed the code in a function and add a package
-	code = "package dummy\nfunc dummy() {\n" + code + "\n}\n"
-
-	// Parse the code
-	fset := token.NewFileSet()
-	af, err := parser.ParseFile(fset, "dummy.go", code, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	// Extract the statements we need
-	v := &blockVisitor{}
-	ast.Walk(v, af)
-
-	return v.stmts, nil
 }
 
 func buildBasicFile(packageName, mockName string) (*ast.File, *token.FileSet, error) {
