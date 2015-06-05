@@ -13,20 +13,18 @@ parameters should be and what each call should return.
 - A tool (genmock) to automatically generate mocks from interface definitions.
 
 The basic code is simple to understand and uses no magic. The auto code generation is not so simple to understand, but hopefully
-should work without you needing to look at it!
-
-The genmock tool currently only works if you can point it at the source file containing the interface type definition. I don't think it 
-will be hard to get it to generate code for an interface in any package, but it isn't there yet.
+should work without you needing to look at it! Its perfectly reasonable to build a mock manually, and if you build tests as you 
+build code it should not be a burden to do so.
 
 ## genmock
 
 genmock's parameters are as follows
 
-- filename: name of the file containing the interface definition. Must be specified.
+- package: name of the package or file containing the interface definition. Must be specified.
 - interface: name of the interface to create a mock for. Must be specified.
 - mock: name of the mock object to create. Defaults to Mock<interface>.
 - outfile: name of the file hold the mock definition. Defaults to mock<interface>.go in the current directory.
-- package: name of the package to use in the mock definition. Must be specified.
+- mock-package: name of the package to use in the mock definition. Must be specified.
 
 Install genmock with `go install github.com/philpearl/ut/genmock`
 
@@ -39,13 +37,21 @@ type MyInterface {
 	func MakeACall(param string) error
 }
 
-//go:generate genmock -filename=thisfile.go -interface=MyInterface -package mypackage
+// Generate a mock for MyInterface
+//go:generate genmock -package=thisfile.go -interface=MyInterface -mock-package=mypackage
+
+// Generate a mock for io.Reader
+//go:generate genmock -package=io -interface=Reader -mock-package=mypackage
 ```
 
 ## Example
 
 This example is implemented as a test in this package. It creates a mock io.Reader, and tests the function UnderTest(). In this case I've built the mock by
 hand so you can see what kind of code genmock will generate.
+
+Please also take a look at the example in https://github.com/philpearl/ut/example
+
+You could also generate this mock with `genmock -package=io -interface=Reader -mock-package=ut`
 
 ```go
 package ut

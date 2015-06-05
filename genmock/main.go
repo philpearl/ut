@@ -81,8 +81,39 @@ type addImports struct {
 
 func (v *addImports) Visit(n ast.Node) ast.Visitor {
 	if n, ok := n.(*ast.GenDecl); ok && n.Tok == token.IMPORT {
-		// Found our imports. Add new ones
-		n.Specs = append(n.Specs, v.imports...)
+		// Found our imports. Add new ones. But first we need to
+		// eliminate duplicates
+		type Imp struct {
+			path string
+			name string
+		}
+		found := map[Imp]struct{}{}
+		specs := []ast.Spec{}
+
+		addWithoutDuplicates := func(list []ast.Spec) {
+			for _, s := range n.Specs {
+				var imp Imp
+				// Extract the path and name
+				i := s.(*ast.ImportSpec)
+				imp.path = i.Path.Value
+				if i.Name != nil {
+					imp.name = i.Name.Name
+				}
+
+				// Have we seen this before
+				_, ok := found[imp]
+				if !ok {
+					// No we haven't
+					specs = append(specs, s)
+					found[imp] = struct{}{}
+				}
+			}
+		}
+
+		addWithoutDuplicates(n.Specs)
+		addWithoutDuplicates(v.imports)
+
+		n.Specs = specs
 		return nil
 	}
 	return v
@@ -144,6 +175,15 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 		}
 	}
 
+	addImportsToMock(mockAst, fset, imports)
+
+	var buf bytes.Buffer
+	printer.Fprint(&buf, fset, mockAst)
+
+	return buf.String()
+}
+
+func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.ImportSpec) {
 	// Find all the imports we're using in the mockAST
 	fi := newFindUsedImports()
 	ast.Walk(fi, mockAst)
@@ -156,17 +196,14 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 		}
 	}
 
-	// Add these imports into the mock AST
-	ai := &addImports{usedImports}
-	ast.Walk(ai, mockAst)
+	if len(usedImports) > 0 {
+		// Add these imports into the mock AST
+		ai := &addImports{usedImports}
+		ast.Walk(ai, mockAst)
 
-	// Sort the imports
-	ast.SortImports(fset, mockAst)
-
-	var buf bytes.Buffer
-	printer.Fprint(&buf, fset, mockAst)
-
-	return buf.String()
+		// Sort the imports
+		ast.SortImports(fset, mockAst)
+	}
 }
 
 // removeFieldNames removes names from the FieldList in place.
@@ -501,7 +538,9 @@ func generateMock(o *options) {
 		fmt.Printf("Failed to access %s. %v", o.packagePath, err)
 	}
 	if stat.IsDir() {
-		pkgs, err := parser.ParseDir(fset, o.packagePath, nil, 0)
+		pkgs, err := parser.ParseDir(fset, o.packagePath, func(fileinfo os.FileInfo) bool {
+			return fileinfo.Name() != o.outfile
+		}, 0)
 		if err != nil {
 			fmt.Printf("Failed to parse %s. %v", o.packagePath, err)
 			os.Exit(2)
