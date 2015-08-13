@@ -66,12 +66,17 @@ func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 	}
 	for i, ap := range params {
 		ep := e.params[i]
+
+		if ap == nil && ep == nil {
+			continue
+		}
+
 		switch ep := ep.(type) {
 		case func(actual interface{}):
 			ep(ap)
 		default:
 			if !reflect.DeepEqual(ap, ep) {
-				t.Fatalf("Call to (%s) parameter %d got %v (%T) does not match expected %v (%T)", name, i, ap, ap, ep, ep)
+				t.Fatalf("Call to (%s) parameter %d got %#v (%T) does not match expected %#v (%T)", name, i, ap, ap, ep, ep)
 			}
 		}
 	}
