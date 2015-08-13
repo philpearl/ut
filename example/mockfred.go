@@ -22,17 +22,16 @@ func (m *MockFred) SetReturns(params ...interface{}) ut.CallTracker {
 	m.CallTracker.SetReturns(params...)
 	return m
 }
-func (i *MockFred) sanit(blah string)	{ i.TrackCall("sanit", blah); return }
-
-func (i *MockFred) iit(fred interface{}) {
-	i.TrackCall("iit", fred)
+func (i *MockFred) sanit(blah string) {
+	i.TrackCall("sanit", blah)
 	return
 }
 
+func (i *MockFred) iit(fred interface{}) { i.TrackCall("iit", fred); return }
+
 func (i *MockFred) many(things ...string) {
 	params := make([]interface{}, 0+
-		len(things,
-		))
+		len(things))
 	for j, p := range things {
 
 		params[0+j] = p
@@ -63,7 +62,11 @@ func (i *MockFred) donit(blah, fah string) (int, error) {
 	}
 	return r_0, r_1
 }
-func (i *MockFred) adonit(blah, fah string, brian func(int) error) (int, error) {
+func (i *MockFred) adonit(blah,
+	fah George, brian func(int) error) (
+	int,
+
+	error) {
 	r := i.TrackCall("adonit", blah,
 
 		fah, brian,

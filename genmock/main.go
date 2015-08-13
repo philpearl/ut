@@ -101,6 +101,25 @@ func (i *InterfaceVisitor) Visit(n ast.Node) ast.Visitor {
 }
 
 func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.ImportSpec) string {
+	// TODO: if we're not building this mock in the package it came from then
+	// we need to qualify any local types and add an import.
+	// We make up a package name that's unlikely to be used
+
+	if o.pkg != nil {
+		thisdir, _ := os.Getwd()
+		if thisdir != o.pkg.Dir {
+			if qualifyLocalTypes(t, "utmocklocal") {
+				imports = append(imports, &ast.ImportSpec{
+					Name: ast.NewIdent("utmocklocal"),
+					Path: &ast.BasicLit{
+						Kind:  token.STRING,
+						Value: "\"" + o.pkg.ImportPath + "\"",
+					},
+				})
+			}
+		}
+	}
+
 	// Mock Implementation of the interface
 	mockAst, fset, err := buildBasicFile(o.targetPackage, o.mockName)
 	if err != nil {
@@ -214,6 +233,8 @@ func (m *%s) SetReturns(params ...interface{}) ut.CallTracker {
 	return file, fset, err
 }
 
+// Build method receiver builds a little bit of AST for the method receiver
+// part of a method call
 func buildMethodReceiver(name string) *ast.FieldList {
 	return &ast.FieldList{
 		List: []*ast.Field{
@@ -258,6 +279,7 @@ return values.  So instead we do
 	return r_0, r_1
 */
 func buildMockMethod(recv *ast.FieldList, name string, t *ast.FuncType) *ast.FuncDecl {
+
 	stmts := []ast.Stmt{}
 	p, ellipsis, err := storeParams(t.Params)
 	if err != nil {
@@ -448,10 +470,12 @@ func buildReturnStatement(count int) ([]ast.Stmt, error) {
 }
 
 func generateMockFromAst(o *options, node ast.Node) bool {
+	// Find  our iterface and any imports in the AST
 	v := &InterfaceVisitor{name: o.ifName}
 	ast.Walk(v, node)
 
 	if v.interfaceType != nil {
+		// We found our interface!
 		code := buildMockForInterface(o, v.interfaceType, v.imports)
 
 		err := ioutil.WriteFile(o.outfile, []byte(code), 0666)
@@ -466,6 +490,7 @@ func generateMockFromAst(o *options, node ast.Node) bool {
 
 func generateMock(o *options) {
 	fset := token.NewFileSet()
+	// package path can be a directory
 	stat, err := os.Stat(o.packagePath)
 	if err != nil {
 		fmt.Printf("Failed to access %s. %v", o.packagePath, err)
@@ -478,6 +503,7 @@ func generateMock(o *options) {
 			fmt.Printf("Failed to parse %s. %v", o.packagePath, err)
 			os.Exit(2)
 		}
+		// Look for the type in each of the files in the directory
 		for _, pkg := range pkgs {
 			if generateMockFromAst(o, pkg) {
 				return
@@ -505,6 +531,8 @@ type options struct {
 	mockName string
 	// Name of the package the mock should be created in
 	targetPackage string
+
+	pkg *build.Package
 }
 
 func (o *options) validate() bool {
@@ -534,6 +562,7 @@ func (o *options) validate() bool {
 			return false
 		}
 		o.packagePath = pkg.Dir
+		o.pkg = pkg
 	}
 
 	return true
