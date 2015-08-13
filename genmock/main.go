@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
+	"go/format"
 	"go/parser"
-	"go/printer"
 	"go/token"
 	"io/ioutil"
 	"os"
@@ -133,7 +133,7 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 	addImportsToMock(mockAst, fset, imports)
 
 	var buf bytes.Buffer
-	printer.Fprint(&buf, fset, mockAst)
+	format.Node(&buf, fset, mockAst)
 
 	return buf.String()
 }
