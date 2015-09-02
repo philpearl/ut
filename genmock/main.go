@@ -268,10 +268,10 @@ return values.  So instead we do
 
 ... and we might have an ellipsis parameter so in fact we do
 
-	params := make([]interface{}, 2)
-	params[0] = param1
-	params[1] = param2
-	r := ut.TrackCall("method", params...)
+	ut__params := make([]interface{}, 2)
+	ut__params[0] = param1
+	ut__params[1] = param2
+	r := ut.TrackCall("method", ut__params...)
 	var r_0 int
 	var r_1 thing
 	if r[0] != nil { r_0 = r[0].(int) }
@@ -340,7 +340,7 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 	if listlen > 0 {
 		last := params.List[len(params.List)-1]
 		if _, ok := last.Type.(*ast.Ellipsis); ok {
-			code := fmt.Sprintf("\tparams := make([]interface{}, %d + len(%s))\n", params.NumFields()-1, last.Names[0].Name)
+			code := fmt.Sprintf("\tut__params := make([]interface{}, %d + len(%s))\n", params.NumFields()-1, last.Names[0].Name)
 			i := 0
 			for _, f := range params.List {
 				for _, n := range f.Names {
@@ -348,11 +348,11 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 						// Ellipsis expression
 						code += fmt.Sprintf(`
     for j, p := range %s {
-    	params[%d+j] = p
+    	ut__params[%d+j] = p
     }
 `, n.Name, i)
 					} else {
-						code += fmt.Sprintf("\tparams[%d] = %s\n", i, n.Name)
+						code += fmt.Sprintf("\tut__params[%d] = %s\n", i, n.Name)
 					}
 					i++
 				}
@@ -380,7 +380,7 @@ func trackCall(numReturns int, methodName string, ellipsis bool, params *ast.Fie
 	code += fmt.Sprintf("i.TrackCall(\"%s\", ", methodName)
 
 	if ellipsis {
-		code += "params...)\n"
+		code += "ut__params...)\n"
 	} else {
 		names := []string{}
 		for _, f := range params.List {
