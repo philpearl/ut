@@ -4,6 +4,7 @@ package ut
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -62,7 +63,7 @@ func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 		t.Fatalf("Expected call to  %s, got call to %s", e.name, name)
 	}
 	if len(params) != len(e.params) {
-		t.Fatalf("Call to (%s) expected %d params, got %d", name, len(e.params), len(params))
+		t.Fatalf("Call to (%s) expected %d params, got %d (%#v)", name, len(e.params), len(params), params)
 	}
 	for i, ap := range params {
 		ep := e.params[i]
@@ -83,6 +84,7 @@ func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 }
 
 type callRecords struct {
+	sync.Mutex
 	t       testing.TB
 	calls   []callRecord
 	current int
@@ -106,8 +108,10 @@ func (cr *callRecords) SetReturns(returns ...interface{}) CallTracker {
 }
 
 func (cr *callRecords) TrackCall(name string, params ...interface{}) []interface{} {
+	cr.Lock()
+	defer cr.Unlock()
 	if cr.current >= len(cr.calls) {
-		cr.t.Fatalf("Unexpected call to \"%s\"", name)
+		cr.t.Fatalf("Unexpected call to \"%s\" with parameters %#v", name, params)
 	}
 	expectedCall := cr.calls[cr.current]
 	expectedCall.assert(cr.t, name, params...)
