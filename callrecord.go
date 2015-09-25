@@ -3,7 +3,10 @@
 package ut
 
 import (
+	"bytes"
+	"fmt"
 	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -60,10 +63,19 @@ type callRecord struct {
 
 func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 	if name != e.name {
-		t.Fatalf("Expected call to  %s, got call to %s", e.name, name)
+		t.Logf("Expected call to %s%s", e.name, paramsToString(e.params))
+		t.Logf(" got call to %s%s", name, paramsToString(params))
+		showStack(t)
+		t.Fail()
+		return
 	}
 	if len(params) != len(e.params) {
-		t.Fatalf("Call to (%s) expected %d params, got %d (%#v)", name, len(e.params), len(params), params)
+		t.Logf("Call to (%s) unexpected parameters", name)
+		t.Logf(" expected %s", paramsToString(e.params))
+		t.Logf("      got %s", paramsToString(params))
+		showStack(t)
+		t.FailNow()
+		return
 	}
 	for i, ap := range params {
 		ep := e.params[i]
@@ -77,10 +89,38 @@ func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 			ep(ap)
 		default:
 			if !reflect.DeepEqual(ap, ep) {
-				t.Fatalf("Call to (%s) parameter %d got %#v (%T) does not match expected %#v (%T)", name, i, ap, ap, ep, ep)
+				t.Logf("Call to %s parameter %d unexpected", name, i)
+				t.Logf("  expected %#v (%T)", ep, ep)
+				t.Logf("       got %#v (%T)", ap, ap)
+				showStack(t)
+				t.Fail()
 			}
 		}
 	}
+}
+
+func showStack(t testing.TB) {
+	pc := make([]uintptr, 10)
+	n := runtime.Callers(4, pc)
+	for i := 0; i < n; i++ {
+		f := runtime.FuncForPC(pc[i])
+		file, line := f.FileLine(pc[i])
+		t.Logf("  %s (%s line %d", f.Name(), file, line)
+	}
+}
+
+func paramsToString(params []interface{}) string {
+	w := &bytes.Buffer{}
+	w.WriteString("(")
+	l := len(params)
+	for i, p := range params {
+		fmt.Fprintf(w, "%#v", p)
+		if i < l-1 {
+			w.WriteString(", ")
+		}
+	}
+	w.WriteString(")")
+	return w.String()
 }
 
 type callRecords struct {
@@ -111,7 +151,9 @@ func (cr *callRecords) TrackCall(name string, params ...interface{}) []interface
 	cr.Lock()
 	defer cr.Unlock()
 	if cr.current >= len(cr.calls) {
-		cr.t.Fatalf("Unexpected call to \"%s\" with parameters %#v", name, params)
+		cr.t.Logf("Unexpected call to %s%s", name, paramsToString(params))
+		showStack(cr.t)
+		cr.t.FailNow()
 	}
 	expectedCall := cr.calls[cr.current]
 	expectedCall.assert(cr.t, name, params...)
