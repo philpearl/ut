@@ -53,6 +53,19 @@ type CallTracker interface {
 	// AssertDone() should be called at the end of a test to confirm all
 	// the expected calls have been made
 	AssertDone()
+
+	// RecordCall() is called to indicate calls to the named mock method should
+	// be recorded rather than asserted.  The parameters to any call to the
+	// named method will be recorded and may be retrieved via GetRecordedParams.
+	// The returns from the method are also specified on this call and must be
+	// the same each time.
+	// Note that the ordering of recorded calls relative to other calls is not
+	// tracked.
+	RecordCall(name string, returns ...interface{}) CallTracker
+
+	// GetRecordedParams returns the sets of parameters passed to a call captured
+	// via RecordCall
+	GetRecordedParams(name string) ([][]interface{}, bool)
 }
 
 type callRecord struct {
@@ -123,22 +136,41 @@ func paramsToString(params []interface{}) string {
 	return w.String()
 }
 
+// recording tracks calls actually made to the mock. It is used only when the
+// user choses to record calls for a method rather than assert them
+type recording struct {
+	// The returned values are the same for each call to a recorded method.
+	returns []interface{}
+	// We record the parameters from each call to the method.
+	params [][]interface{}
+}
+
 type callRecords struct {
 	sync.Mutex
 	t       testing.TB
 	calls   []callRecord
+	records map[string]*recording
 	current int
 }
 
 // NewCallRecords creates a new call tracker
 func NewCallRecords(t testing.TB) CallTracker {
 	return &callRecords{
-		t: t,
+		t:       t,
+		records: make(map[string]*recording),
 	}
 }
 
 func (cr *callRecords) AddCall(name string, params ...interface{}) CallTracker {
 	cr.calls = append(cr.calls, callRecord{name: name, params: params})
+	return cr
+}
+
+func (cr *callRecords) RecordCall(name string, returns ...interface{}) CallTracker {
+	cr.records[name] = &recording{
+		returns: returns,
+		params:  make([][]interface{}, 0),
+	}
 	return cr
 }
 
@@ -150,11 +182,18 @@ func (cr *callRecords) SetReturns(returns ...interface{}) CallTracker {
 func (cr *callRecords) TrackCall(name string, params ...interface{}) []interface{} {
 	cr.Lock()
 	defer cr.Unlock()
+	if record, ok := cr.records[name]; ok {
+		// Call is to be recorded, not asserted
+		record.params = append(record.params, params)
+		return record.returns
+	}
+	// Call is to be asserted
 	if cr.current >= len(cr.calls) {
 		cr.t.Logf("Unexpected call to %s%s", name, paramsToString(params))
 		showStack(cr.t)
 		cr.t.FailNow()
 	}
+
 	expectedCall := cr.calls[cr.current]
 	expectedCall.assert(cr.t, name, params...)
 	cr.current += 1
@@ -165,6 +204,16 @@ func (cr *callRecords) AssertDone() {
 	if cr.current < len(cr.calls) {
 		cr.t.Fatalf("Only %d of %d expected calls made", cr.current, len(cr.calls))
 	}
+}
+
+func (cr *callRecords) GetRecordedParams(name string) ([][]interface{}, bool) {
+	cr.Lock()
+	defer cr.Unlock()
+	record, ok := cr.records[name]
+	if ok {
+		return record.params, true
+	}
+	return nil, false
 }
 
 // NilOrError is a utility function for returning err from mocked methods

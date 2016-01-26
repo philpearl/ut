@@ -73,3 +73,45 @@ func TestUnderTest(t *testing.T) {
 		m.AssertDone()
 	}
 }
+
+func TestRecord(t *testing.T) {
+	m := NewMockReader(t)
+
+	m.RecordCall("Read", 1, nil)
+
+	n, err := m.Read([]byte("cherry"))
+	if n != 1 {
+		t.Fatalf("n should be 1")
+	}
+	if err != nil {
+		t.Fatalf("err should be nil")
+	}
+	n, err = m.Read([]byte("bomb"))
+	if n != 1 {
+		t.Fatalf("n should be 1")
+	}
+	if err != nil {
+		t.Fatalf("err should be nil")
+	}
+
+	m.AssertDone()
+	params, ok := m.GetRecordedParams("Read")
+	if !ok {
+		t.Fatalf("oops")
+	}
+	if len(params) != 2 {
+		t.Fatalf("should have 2 calls")
+	}
+
+	if len(params[0]) != 1 {
+		t.Fatalf("should have 1 param")
+	}
+	if string(params[0][0].([]byte)) != "cherry" {
+		t.Fatal("grief!")
+	}
+
+	if string(params[1][0].([]byte)) != "bomb" {
+		t.Fatal("grief!")
+	}
+
+}
