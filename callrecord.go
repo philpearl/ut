@@ -202,7 +202,9 @@ func (cr *callRecords) TrackCall(name string, params ...interface{}) []interface
 
 func (cr *callRecords) AssertDone() {
 	if cr.current < len(cr.calls) {
-		cr.t.Fatalf("Only %d of %d expected calls made", cr.current, len(cr.calls))
+		// We don't call Fatalf or FailNow because that may mask other errors if this AssertDone
+		// is called from a defer
+		cr.t.Errorf("Only %d of %d expected calls made", cr.current, len(cr.calls))
 	}
 }
 
