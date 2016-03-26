@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -100,6 +101,12 @@ func (i *InterfaceVisitor) Visit(n ast.Node) ast.Visitor {
 	return i
 }
 
+func sameDir(d1, d2 string) bool {
+	a1, _ := filepath.Abs(d1)
+	a2, _ := filepath.Abs(d2)
+	return filepath.Clean(a1) == filepath.Clean(a2)
+}
+
 func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.ImportSpec) string {
 	// TODO: if we're not building this mock in the package it came from then
 	// we need to qualify any local types and add an import.
@@ -107,7 +114,7 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 
 	if o.pkg != nil {
 		thisdir, _ := os.Getwd()
-		if thisdir != o.pkg.Dir {
+		if !sameDir(thisdir, o.pkg.Dir) {
 			if qualifyLocalTypes(t, "utmocklocal") {
 				imports = append(imports, &ast.ImportSpec{
 					Name: ast.NewIdent("utmocklocal"),
