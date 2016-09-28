@@ -204,7 +204,15 @@ func (cr *callRecords) AssertDone() {
 	if cr.current < len(cr.calls) {
 		// We don't call Fatalf or FailNow because that may mask other errors if this AssertDone
 		// is called from a defer
-		cr.t.Errorf("Only %d of %d expected calls made", cr.current, len(cr.calls))
+		missed := &bytes.Buffer{}
+		for i, call := range cr.calls[cr.current:] {
+			if i != 0 {
+				missed.WriteString(", ")
+			}
+			missed.WriteString(call.name)
+		}
+
+		cr.t.Errorf("Only %d of %d expected calls made. Missed calls to %s", cr.current, len(cr.calls), missed)
 	}
 }
 

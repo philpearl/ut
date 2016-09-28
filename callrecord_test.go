@@ -113,5 +113,4 @@ func TestRecord(t *testing.T) {
 	if string(params[1][0].([]byte)) != "bomb" {
 		t.Fatal("grief!")
 	}
-
 }
