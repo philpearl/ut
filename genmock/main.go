@@ -107,7 +107,7 @@ func sameDir(d1, d2 string) bool {
 	return filepath.Clean(a1) == filepath.Clean(a2)
 }
 
-func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.ImportSpec) string {
+func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.ImportSpec, node ast.Node) string {
 	// TODO: if we're not building this mock in the package it came from then
 	// we need to qualify any local types and add an import.
 	// We make up a package name that's unlikely to be used
@@ -140,6 +140,11 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 	// Method receiver for our mock interface
 	recv := buildMethodReceiver(o.mockName)
 
+	// Check if we have any nested interfaces
+	t.Methods.List = append(t.Methods.List, addNestedMethods(t.Methods.List, node)...)
+
+	t.Methods.List = dedupeFields(t.Methods.List)
+
 	// Add methods to our mockAst for each interface method
 	for _, m := range t.Methods.List {
 		t, ok := m.Type.(*ast.FuncType)
@@ -170,6 +175,52 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 	return buf.String()
 }
 
+func addNestedMethods(fields []*ast.Field, node ast.Node) []*ast.Field {
+	var appendedFields []*ast.Field
+	// Check if we have any nested interfaces
+	for _, m := range fields {
+		i, ok := m.Type.(*ast.Ident)
+		if ok {
+			// it's an interface
+			// lookup details of interface
+			v := &InterfaceVisitor{name: i.Name}
+			ast.Walk(v, node)
+			// append interface methods to list
+			appendedFields = append(appendedFields, addNestedMethods(v.interfaceType.Methods.List, node)...)
+			continue
+		}
+		_, ok = m.Type.(*ast.FuncType)
+		if ok {
+			// it's a method
+			appendedFields = append(appendedFields, m)
+		}
+
+	}
+
+	return appendedFields
+}
+
+func dedupeFields(fields []*ast.Field) []*ast.Field {
+	// remove any duplicate methods with same method name
+	methodNames := make(map[string]struct{}, 0)
+	deDuped := make([]*ast.Field, 0)
+
+	for _, field := range fields {
+		_, ok := field.Type.(*ast.FuncType)
+		if ok {
+			for _, name := range field.Names {
+				if _, ok := methodNames[name.Name]; !ok {
+					deDuped = append(deDuped, field)
+					methodNames[name.Name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return deDuped
+
+}
+
 func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.ImportSpec) {
 	// Find all the imports we're using in the mockAST
 	fi := newFindUsedImports()
@@ -189,7 +240,8 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 		ast.Walk(ai, mockAst)
 
 		// Sort the imports
-		ast.SortImports(fset, mockAst)
+		// TODO: removed for now
+		//ast.SortImports(fset, mockAst)
 	}
 }
 
@@ -491,7 +543,7 @@ func generateMockFromAst(o *options, node ast.Node) bool {
 
 	if v.interfaceType != nil {
 		// We found our interface!
-		code := buildMockForInterface(o, v.interfaceType, v.imports)
+		code := buildMockForInterface(o, v.interfaceType, v.imports, node)
 
 		err := ioutil.WriteFile(o.outfile, []byte(code), 0666)
 		if err != nil {
