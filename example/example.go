@@ -1,4 +1,3 @@
-// +build ignore
 package example
 
 //go:generate genmock -package=github.com/philpearl/ut/example -interface=Fred -mock-package=example
