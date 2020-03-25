@@ -56,7 +56,7 @@ import (
 `,
 		},
 		{
-			toAdd: []ast.Spec{buildImport("fred.com/elephant", ""), buildImport("io", ""), buildImport("fmt", ""), buildImport("fmt", "")},
+			toAdd: []ast.Spec{buildImport("fred.com/elephant", ""), buildImport("io", "io"), buildImport("fmt", ""), buildImport("fmt", "")},
 			exp: `package fred
 
 import (
