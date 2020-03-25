@@ -3,6 +3,8 @@ package main
 import (
 	"go/ast"
 	"go/token"
+	"path"
+	"strings"
 )
 
 // addImports is an AST Vistor that adds imports to the AST.
@@ -28,7 +30,10 @@ func (v *addImports) Visit(n ast.Node) ast.Visitor {
 				i := s.(*ast.ImportSpec)
 				imp.path = i.Path.Value
 				if i.Name != nil {
-					imp.name = i.Name.Name
+					// No point in adding a name if it is the same as the base of the path
+					if i.Name.Name != path.Base(strings.Replace(imp.path, `"`, "", -1)) {
+						imp.name = i.Name.Name
+					}
 				}
 
 				// Have we seen this before
