@@ -169,7 +169,6 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 
 	// Fixup the comments
 	mockAst.Comments = cmap.Filter(mockAst).Comments()
-
 	var buf bytes.Buffer
 	format.Node(&buf, fset, mockAst)
 	return buf.String()
@@ -236,22 +235,28 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 	for _, is := range imports {
 		if fi.isUsed(is) {
 			var imp Imp
+			cleanImp := &ast.ImportSpec{Path: &ast.BasicLit{Value: is.Path.Value}}
 			// Extract the path and name
 			imp.path = is.Path.Value
 			if is.Name != nil {
 				// No point in adding a name if it is the same as the base of the path
 				if is.Name.Name != path.Base(strings.Replace(imp.path, `"`, "", -1)) {
+					cleanImp.Name = &ast.Ident{Name: is.Name.Name}
 					imp.name = is.Name.Name
 				}
 			}
 			_, ok := found[imp]
 			if !ok {
-				usedImports = append(usedImports, is)
+				usedImports = append(usedImports, cleanImp)
 				found[imp] = struct{}{}
 			}
 		}
 	}
 
+	for _, u := range usedImports {
+		r := u.(*ast.ImportSpec)
+		fmt.Println(r.Name, r.Path.Value)
+	}
 	if len(usedImports) > 0 {
 		for i := 0; i < len(mockAst.Decls); i++ {
 			d := mockAst.Decls[i]
