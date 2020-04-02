@@ -261,7 +261,6 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 		for i := 0; i < len(mockAst.Decls); i++ {
 			d := mockAst.Decls[i]
 			switch d.(type) {
-			case *ast.FuncDecl:
 			case *ast.GenDecl:
 				dd := d.(*ast.GenDecl)
 				if dd.Tok == token.IMPORT {
