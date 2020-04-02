@@ -252,11 +252,6 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 			}
 		}
 	}
-
-	for _, u := range usedImports {
-		r := u.(*ast.ImportSpec)
-		fmt.Println(r.Name, r.Path.Value)
-	}
 	if len(usedImports) > 0 {
 		for i := 0; i < len(mockAst.Decls); i++ {
 			d := mockAst.Decls[i]
