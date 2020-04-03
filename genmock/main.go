@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -168,10 +169,8 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 
 	// Fixup the comments
 	mockAst.Comments = cmap.Filter(mockAst).Comments()
-
 	var buf bytes.Buffer
 	format.Node(&buf, fset, mockAst)
-
 	return buf.String()
 }
 
@@ -226,22 +225,48 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 	fi := newFindUsedImports()
 	ast.Walk(fi, mockAst)
 
+	type Imp struct {
+		path string
+		name string
+	}
+	found := map[Imp]struct{}{}
 	// Pick imports out of our input AST that are used in the mock
 	usedImports := []ast.Spec{}
 	for _, is := range imports {
 		if fi.isUsed(is) {
-			usedImports = append(usedImports, is)
+			var imp Imp
+			cleanImp := &ast.ImportSpec{Path: &ast.BasicLit{Value: is.Path.Value}}
+			// Extract the path and name
+			imp.path = is.Path.Value
+			if is.Name != nil {
+				// No point in adding a name if it is the same as the base of the path
+				if is.Name.Name != path.Base(strings.Replace(imp.path, `"`, "", -1)) {
+					cleanImp.Name = &ast.Ident{Name: is.Name.Name}
+					imp.name = is.Name.Name
+				}
+			}
+			_, ok := found[imp]
+			if !ok {
+				usedImports = append(usedImports, cleanImp)
+				found[imp] = struct{}{}
+			}
 		}
 	}
-
 	if len(usedImports) > 0 {
-		// Add these imports into the mock AST
-		ai := &addImports{usedImports}
-		ast.Walk(ai, mockAst)
-
-		// Sort the imports
-		// TODO: removed for now
-		//ast.SortImports(fset, mockAst)
+		for i := 0; i < len(mockAst.Decls); i++ {
+			d := mockAst.Decls[i]
+			switch d.(type) {
+			case *ast.GenDecl:
+				dd := d.(*ast.GenDecl)
+				if dd.Tok == token.IMPORT {
+					dd.Specs = usedImports
+					break
+				}
+			}
+		}
+		mockAst.Imports = []*ast.ImportSpec{}
+		// Sorting seems broken- but we do format anyway so commented for now
+		// ast.SortImports(fset, mockAst)
 	}
 }
 
