@@ -229,9 +229,15 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 		path string
 		name string
 	}
-	found := map[Imp]struct{}{}
+	found := map[Imp]struct{}{
+		Imp{path: `"testing"`}:                 {},
+		Imp{path: `"github.com/philpearl/ut"`}: {},
+	}
 	// Pick imports out of our input AST that are used in the mock
-	usedImports := []ast.Spec{}
+	usedImports := []ast.Spec{
+		&ast.ImportSpec{Path: &ast.BasicLit{Value: `"testing"`}},
+		&ast.ImportSpec{Path: &ast.BasicLit{Value: `"github.com/philpearl/ut"`}},
+	}
 	for _, is := range imports {
 		if fi.isUsed(is) {
 			var imp Imp
