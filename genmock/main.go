@@ -258,16 +258,14 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 			}
 		}
 	}
-	if len(usedImports) > 0 {
-		for i := 0; i < len(mockAst.Decls); i++ {
-			d := mockAst.Decls[i]
-			switch d.(type) {
-			case *ast.GenDecl:
-				dd := d.(*ast.GenDecl)
-				if dd.Tok == token.IMPORT {
-					dd.Specs = usedImports
-					break
-				}
+	for i := 0; i < len(mockAst.Decls); i++ {
+		d := mockAst.Decls[i]
+		switch d.(type) {
+		case *ast.GenDecl:
+			dd := d.(*ast.GenDecl)
+			if dd.Tok == token.IMPORT {
+				dd.Specs = usedImports
+				break
 			}
 		}
 		mockAst.Imports = []*ast.ImportSpec{}
