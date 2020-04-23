@@ -171,6 +171,7 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 	mockAst.Comments = cmap.Filter(mockAst).Comments()
 	var buf bytes.Buffer
 	format.Node(&buf, fset, mockAst)
+	buf = *bytes.NewBuffer(bytes.Replace(buf.Bytes(), []byte(".\n"), []byte("."), -1))
 	return buf.String()
 }
 
@@ -322,6 +323,7 @@ func (m *%s) SetReturns(params ...interface{}) ut.CallTracker {
 	m.CallTracker.SetReturns(params...)
 	return m
 }
+
 `, packageName, mockName, mockName, mockName, mockName, mockName, mockName)
 
 	fset := token.NewFileSet()
