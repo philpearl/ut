@@ -172,6 +172,7 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 	var buf bytes.Buffer
 	format.Node(&buf, fset, mockAst)
 	buf = *bytes.NewBuffer(bytes.Replace(buf.Bytes(), []byte(".\n"), []byte("."), -1))
+	buf = *bytes.NewBuffer(bytes.Replace(buf.Bytes(), []byte(",\n"), []byte(","), -1))
 	return buf.String()
 }
 
