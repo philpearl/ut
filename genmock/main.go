@@ -170,8 +170,10 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 	// Fixup the comments
 	mockAst.Comments = cmap.Filter(mockAst).Comments()
 	var buf bytes.Buffer
-	format.Node(&buf, fset, mockAst)
-	buf = *bytes.NewBuffer(bytes.Replace(buf.Bytes(), []byte(".\n"), []byte("."), -1))
+	err = format.Node(&buf, fset, mockAst)
+	if err != nil {
+		panic(err)
+	}
 	return buf.String()
 }
 
@@ -470,25 +472,48 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 //
 // If there are no return values r := is omitted
 func trackCall(numReturns int, methodName string, ellipsis bool, params *ast.FieldList) ([]ast.Stmt, error) {
-	code := "\t"
-
-	if numReturns != 0 {
-		code += "r := "
-	}
-	code += fmt.Sprintf("i.TrackCall(\"%s\", ", methodName)
-
+	stmts := []ast.Stmt{}
+	args := []ast.Expr{}
+	args = append(args, &ast.BasicLit{
+		Value: fmt.Sprintf("\"%s\"", methodName),
+	})
 	if ellipsis {
-		code += "ut__params...)\n"
+		args = append(args, ast.NewIdent("ut__params..."))
 	} else {
-		names := []string{}
 		for _, f := range params.List {
 			for _, n := range f.Names {
-				names = append(names, n.Name)
+				args = append(args, ast.NewIdent(n.Name))
 			}
 		}
-		code += strings.Join(names, ", ") + ")\n"
 	}
-	return parseCodeBlock(code)
+	if numReturns != 0 {
+		stmts = append(stmts, &ast.AssignStmt{
+			Lhs: []ast.Expr{ast.NewIdent("r")},
+			Rhs: []ast.Expr{
+				&ast.CallExpr{
+					Fun: &ast.SelectorExpr{
+						X:   ast.NewIdent("i"),
+						Sel: ast.NewIdent("TrackCall"),
+					},
+					Args: args,
+				},
+			},
+			Tok: token.DEFINE,
+		},
+		)
+	} else {
+		stmts = append(stmts, &ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("i"),
+					Sel: ast.NewIdent("TrackCall"),
+				},
+				Args: args,
+			},
+		},
+		)
+	}
+	return stmts, nil
 }
 
 // declReturnValues builds the return part of the call
