@@ -486,31 +486,23 @@ func trackCall(numReturns int, methodName string, ellipsis bool, params *ast.Fie
 			}
 		}
 	}
+	callExpr := &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   ast.NewIdent("i"),
+			Sel: ast.NewIdent("TrackCall"),
+		},
+		Args: args,
+	}
 	if numReturns != 0 {
 		stmts = append(stmts, &ast.AssignStmt{
 			Lhs: []ast.Expr{ast.NewIdent("r")},
-			Rhs: []ast.Expr{
-				&ast.CallExpr{
-					Fun: &ast.SelectorExpr{
-						X:   ast.NewIdent("i"),
-						Sel: ast.NewIdent("TrackCall"),
-					},
-					Args: args,
-				},
-			},
+			Rhs: []ast.Expr{callExpr},
 			Tok: token.DEFINE,
 		},
 		)
 	} else {
 		stmts = append(stmts, &ast.ExprStmt{
-			X: &ast.CallExpr{
-				Fun: &ast.SelectorExpr{
-					X:   ast.NewIdent("i"),
-					Sel: ast.NewIdent("TrackCall"),
-				},
-				Args: args,
-			},
-		},
+			X: callExpr},
 		)
 	}
 	return stmts, nil
