@@ -438,28 +438,83 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 	// Is there an ellipsis parameter?
 	listlen := len(params.List)
 	if listlen > 0 {
+		stmts := []ast.Stmt{}
 		last := params.List[len(params.List)-1]
 		if _, ok := last.Type.(*ast.Ellipsis); ok {
-			code := fmt.Sprintf("\tut__params := make([]interface{}, %d + len(%s))\n", params.NumFields()-1, last.Names[0].Name)
+			stmts = append(stmts,
+				&ast.AssignStmt{
+					Lhs: []ast.Expr{ast.NewIdent("ut__params")},
+					Rhs: []ast.Expr{
+						&ast.CallExpr{
+							Fun: ast.NewIdent("make"),
+							Args: []ast.Expr{
+								&ast.ArrayType{Elt: &ast.InterfaceType{Methods: &ast.FieldList{}}},
+								&ast.BinaryExpr{
+									X:  &ast.BasicLit{Kind: token.INT, Value: fmt.Sprintf("%d", params.NumFields()-1)},
+									Op: token.ADD,
+									Y: &ast.CallExpr{
+										Fun:  ast.NewIdent("len"),
+										Args: []ast.Expr{ast.NewIdent(last.Names[0].Name)},
+									},
+								},
+							},
+						},
+					},
+					Tok: token.DEFINE,
+				},
+			)
+
 			i := 0
 			for _, f := range params.List {
 				for _, n := range f.Names {
 					if _, ok := f.Type.(*ast.Ellipsis); ok {
-						// Ellipsis expression
-						code += fmt.Sprintf(`
-    for j, p := range %s {
-    	ut__params[%d+j] = p
-    }
-`, n.Name, i)
+						stmts = append(stmts,
+							&ast.RangeStmt{
+								Key:   ast.NewIdent("j"),
+								Value: ast.NewIdent("p"),
+								X:     ast.NewIdent("udfs"),
+								Tok:   token.DEFINE,
+								Body: &ast.BlockStmt{
+									List: []ast.Stmt{
+										&ast.AssignStmt{
+											Lhs: []ast.Expr{
+												&ast.IndexExpr{
+													X: ast.NewIdent("ut__params"),
+													Index: &ast.BinaryExpr{
+														X: &ast.BasicLit{
+															Kind:  token.INT,
+															Value: fmt.Sprintf("%d", i),
+														},
+														Op: token.ADD,
+														Y:  ast.NewIdent("j"),
+													},
+												},
+											},
+											Rhs: []ast.Expr{ast.NewIdent("p")},
+											Tok: token.ASSIGN,
+										},
+									},
+								},
+							},
+						)
 					} else {
-						code += fmt.Sprintf("\tut__params[%d] = %s\n", i, n.Name)
+						stmts = append(stmts,
+							&ast.AssignStmt{
+								Lhs: []ast.Expr{
+									&ast.IndexExpr{
+										X:     ast.NewIdent("ut__params"),
+										Index: &ast.BasicLit{Kind: token.INT, Value: fmt.Sprintf("%d", i)},
+									},
+								},
+								Rhs: []ast.Expr{ast.NewIdent(n.Name)},
+								Tok: token.ASSIGN,
+							},
+						)
 					}
 					i++
 				}
 			}
-
-			stmts, err := parseCodeBlock(code)
-			return stmts, true, err
+			return stmts, true, nil
 		}
 	}
 	return nil, false, nil
