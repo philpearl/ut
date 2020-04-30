@@ -145,7 +145,7 @@ func genBasicDecls(mockName string) []ast.Decl {
               },
               Args: []ast.Expr{
                 ast.NewIdent("name"),
-                ast.NewIdent("params"),
+                ast.NewIdent("params..."),
               },
             },
           },
@@ -208,7 +208,7 @@ func genBasicDecls(mockName string) []ast.Decl {
                 Sel: ast.NewIdent("SetReturns"),
               },
               Args: []ast.Expr{
-                ast.NewIdent("params"),
+                ast.NewIdent("params..."),
               },
             },
           },
