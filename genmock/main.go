@@ -427,7 +427,7 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 							&ast.RangeStmt{
 								Key:   ast.NewIdent("j"),
 								Value: ast.NewIdent("p"),
-								X:     ast.NewIdent("udfs"),
+								X:     ast.NewIdent(last.Names[0].Name),
 								Tok:   token.DEFINE,
 								Body: &ast.BlockStmt{
 									List: []ast.Stmt{
