@@ -234,9 +234,9 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 		{path: `"github.com/philpearl/ut"`}: {},
 	}
 	// Pick imports out of our input AST that are used in the mock
-	usedImports := []*ast.ImportSpec{
-		{Path: &ast.BasicLit{Value: `"testing"`, Kind: token.STRING}},
-		{Path: &ast.BasicLit{Value: `"github.com/philpearl/ut"`, Kind: token.STRING}},
+	usedImports := []ast.Spec{
+		&ast.ImportSpec{Path: &ast.BasicLit{Value: `"testing"`, Kind: token.STRING}},
+		&ast.ImportSpec{Path: &ast.BasicLit{Value: `"github.com/philpearl/ut"`, Kind: token.STRING}},
 	}
 	for _, is := range imports {
 		if fi.isUsed(is) {
@@ -258,7 +258,9 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 			}
 		}
 	}
-	mockAst.Imports = usedImports
+	id := &ast.GenDecl{Tok: token.IMPORT, Specs: usedImports}
+	// This needs to be the first decl otherwise it puts the imports last
+	mockAst.Decls = append([]ast.Decl{id}, mockAst.Decls...)
 }
 
 // removeFieldNames removes names from the FieldList in place.
