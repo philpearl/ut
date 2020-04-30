@@ -5,7 +5,7 @@ import (
   "go/token"
 )
 
-// This generate some basic scaffold that looks like:
+// This generates some basic scaffold that looks like:
 // type mockName struct {
 //   ut.CallTracker
 // }
