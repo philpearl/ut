@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -128,13 +129,6 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 		}
 	}
 
-	// Mock Implementation of the interface
-	mockAst, fset, err := buildBasicFile(o.targetPackage, o.mockName)
-	if err != nil {
-		fmt.Printf("Failed to parse basic AST. %v", err)
-		os.Exit(2)
-	}
-
 	// // Method receiver for our mock interface
 	recv := buildMethodReceiver(o.mockName)
 
@@ -142,6 +136,15 @@ func buildMockForInterface(o *options, t *ast.InterfaceType, imports []*ast.Impo
 	t.Methods.List = append(t.Methods.List, addNestedMethods(t.Methods.List, node)...)
 
 	t.Methods.List = dedupeFields(t.Methods.List)
+
+	// Mock Implementation of the interface
+	methodNames := fieldListNames(t.Methods.List)
+	sort.Strings(methodNames)
+	mockAst, fset, err := buildBasicFile(o.targetPackage, o.mockName, methodNames)
+	if err != nil {
+		fmt.Printf("Failed to parse basic AST. %v", err)
+		os.Exit(2)
+	}
 
 	// Add methods to our mockAst for each interface method
 	for _, m := range t.Methods.List {
@@ -199,6 +202,16 @@ func addNestedMethods(fields []*ast.Field, node ast.Node) []*ast.Field {
 	return appendedFields
 }
 
+func fieldListNames(fields []*ast.Field) []string {
+	names := make([]string, 0, len(fields))
+	for _, field := range fields {
+		for _, name := range field.Names {
+			names = append(names, name.Name)
+		}
+	}
+	return names
+}
+
 func dedupeFields(fields []*ast.Field) []*ast.Field {
 	// remove any duplicate methods with same method name
 	methodNames := make(map[string]struct{}, 0)
@@ -217,7 +230,6 @@ func dedupeFields(fields []*ast.Field) []*ast.Field {
 	}
 
 	return deDuped
-
 }
 
 func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.ImportSpec) {
@@ -230,11 +242,13 @@ func addImportsToMock(mockAst *ast.File, fset *token.FileSet, imports []*ast.Imp
 		name string
 	}
 	found := map[Imp]struct{}{
+		{path: `"fmt"`}:                     {},
 		{path: `"testing"`}:                 {},
 		{path: `"github.com/philpearl/ut"`}: {},
 	}
 	// Pick imports out of our input AST that are used in the mock
 	usedImports := []ast.Spec{
+		&ast.ImportSpec{Path: &ast.BasicLit{Value: `"fmt"`, Kind: token.STRING}},
 		&ast.ImportSpec{Path: &ast.BasicLit{Value: `"testing"`, Kind: token.STRING}},
 		&ast.ImportSpec{Path: &ast.BasicLit{Value: `"github.com/philpearl/ut"`, Kind: token.STRING}},
 	}
@@ -281,12 +295,12 @@ func removeFieldNames(fl *ast.FieldList) {
 	fl.List = l
 }
 
-func buildBasicFile(packageName, mockName string) (*ast.File, *token.FileSet, error) {
+func buildBasicFile(packageName, mockName string, methodNames []string) (*ast.File, *token.FileSet, error) {
 	fset := token.NewFileSet()
 	file := &ast.File{
 		Name: ast.NewIdent(packageName),
 	}
-	file.Decls = genBasicDecls(mockName)
+	file.Decls = genBasicDecls(mockName, methodNames)
 	return file, fset, nil
 }
 
@@ -336,7 +350,6 @@ return values.  So instead we do
 	return r_0, r_1
 */
 func buildMockMethod(recv *ast.FieldList, name string, t *ast.FuncType) *ast.FuncDecl {
-
 	stmts := []ast.Stmt{}
 	p, ellipsis, err := storeParams(t.Params)
 	if err != nil {
@@ -514,7 +527,8 @@ func trackCall(numReturns int, methodName string, ellipsis bool, params *ast.Fie
 		)
 	} else {
 		stmts = append(stmts, &ast.ExprStmt{
-			X: callExpr},
+			X: callExpr,
+		},
 		)
 	}
 	return stmts, nil

@@ -3,6 +3,7 @@ package main
 import (
 	"go/ast"
 	"go/token"
+	"strconv"
 	"strings"
 )
 
@@ -22,7 +23,7 @@ import (
 //   m.CallTracker.SetReturns(params)
 //   return m
 // }
-func genBasicDecls(mockName string) []ast.Decl {
+func genBasicDecls(mockName string, methodNames []string) []ast.Decl {
 	return []ast.Decl{
 		&ast.GenDecl{
 			Tok: token.TYPE,
@@ -135,6 +136,49 @@ func genBasicDecls(mockName string) []ast.Decl {
 			},
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
+					&ast.SwitchStmt{
+						Tag: &ast.Ident{
+							Name: "name",
+						},
+						Body: &ast.BlockStmt{
+							List: []ast.Stmt{
+								&ast.CaseClause{
+									List: stringLiteralList(methodNames),
+									Body: []ast.Stmt{
+										&ast.BranchStmt{
+											Tok: token.BREAK,
+										},
+									},
+								},
+								&ast.CaseClause{
+									List: nil, // Default case.
+									Body: []ast.Stmt{
+										&ast.ExprStmt{
+											X: &ast.CallExpr{
+												Fun: &ast.Ident{Name: "panic"},
+												Args: []ast.Expr{
+													&ast.CallExpr{
+														Fun: &ast.SelectorExpr{
+															X:   &ast.Ident{Name: "fmt"},
+															Sel: &ast.Ident{Name: "Errorf"},
+														},
+														Args: []ast.Expr{
+															&ast.BasicLit{
+																Kind:  token.STRING,
+																Value: strconv.Quote("AddCall: %T has no method %s"),
+															},
+															&ast.Ident{Name: "m"},
+															&ast.Ident{Name: "name"},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 					&ast.ExprStmt{
 						X: &ast.CallExpr{
 							Fun: &ast.SelectorExpr{
@@ -229,4 +273,15 @@ func constructorName(typeName string) string {
 		return "new" + strings.Title(typeName)
 	}
 	return "New" + typeName
+}
+
+func stringLiteralList(vs []string) []ast.Expr {
+	expr := make([]ast.Expr, len(vs))
+	for i, v := range vs {
+		expr[i] = &ast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote(v),
+		}
+	}
+	return expr
 }
