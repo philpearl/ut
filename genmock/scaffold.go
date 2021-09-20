@@ -3,6 +3,7 @@ package main
 import (
 	"go/ast"
 	"go/token"
+	"strings"
 )
 
 // This generates some basic scaffold that looks like:
@@ -37,7 +38,7 @@ func genBasicDecls(mockName string) []ast.Decl {
 			},
 		},
 		&ast.FuncDecl{
-			Name: ast.NewIdent("New" + mockName),
+			Name: ast.NewIdent(constructorName(mockName)),
 			Type: &ast.FuncType{
 				Params: &ast.FieldList{
 					List: []*ast.Field{
@@ -221,4 +222,11 @@ func genBasicDecls(mockName string) []ast.Decl {
 			},
 		},
 	}
+}
+
+func constructorName(typeName string) string {
+	if len(typeName) > 0 && typeName[0] >= 'a' && typeName[0] <= 'z' {
+		return "new" + strings.Title(typeName)
+	}
+	return "New" + typeName
 }
