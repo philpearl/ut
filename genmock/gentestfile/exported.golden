@@ -3,6 +3,7 @@
 package testcode
 
 import (
+	"fmt"
 	"testing"
 	"github.com/philpearl/ut"
 )
@@ -15,6 +16,12 @@ func NewMockInterface4(t *testing.T) *MockInterface4 {
 	return &MockInterface4{ut.NewCallRecords(t)}
 }
 func (m *MockInterface4) AddCall(name string, params ...interface{}) ut.CallTracker {
+	switch name {
+	case "Method1", "Method2", "Method3", "Method4":
+		break
+	default:
+		panic(fmt.Errorf("AddCall: %T has no method %s", m, name))
+	}
 	m.CallTracker.AddCall(name, params...)
 	return m
 }
