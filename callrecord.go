@@ -69,21 +69,27 @@ type CallTracker interface {
 }
 
 type callRecord struct {
-	name    string
-	params  []interface{}
-	returns []interface{}
+	name        string
+	params      []interface{}
+	returns     []interface{}
+	addLocation codeLocation
+}
+
+type codeLocation struct {
+	file string
+	line int
 }
 
 func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 	if name != e.name {
-		t.Logf("Expected call to %s%s", e.name, paramsToString(e.params))
+		t.Logf("Expected call to %s%s%s", e.name, paramsToString(e.params), codeLocationToString(e.addLocation))
 		t.Logf(" got call to %s%s", name, paramsToString(params))
 		showStack(t)
 		t.Fail()
 		return
 	}
 	if len(params) != len(e.params) {
-		t.Logf("Call to (%s) unexpected parameters", name)
+		t.Logf("Call to (%s) unexpected parameters%s", name, codeLocationToString(e.addLocation))
 		t.Logf(" expected %s", paramsToString(e.params))
 		t.Logf("      got %s", paramsToString(params))
 		showStack(t)
@@ -102,7 +108,7 @@ func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 			ep(ap)
 		default:
 			if !reflect.DeepEqual(ap, ep) {
-				t.Logf("Call to %s parameter %d unexpected", name, i)
+				t.Logf("Call to %s parameter %d unexpected%s", name, i, codeLocationToString(e.addLocation))
 				t.Logf("  expected %#v (%T)", ep, ep)
 				t.Logf("       got %#v (%T)", ap, ap)
 				showStack(t)
@@ -136,6 +142,10 @@ func paramsToString(params []interface{}) string {
 	return w.String()
 }
 
+func codeLocationToString(c codeLocation) string {
+	return fmt.Sprintf(" (Added in %s:%d)", c.file, c.line)
+}
+
 // recording tracks calls actually made to the mock. It is used only when the
 // user choses to record calls for a method rather than assert them
 type recording struct {
@@ -162,7 +172,16 @@ func NewCallRecords(t testing.TB) CallTracker {
 }
 
 func (cr *callRecords) AddCall(name string, params ...interface{}) CallTracker {
-	cr.calls = append(cr.calls, callRecord{name: name, params: params})
+	c := callRecord{name: name, params: params}
+
+	_, file, line, ok := runtime.Caller(2)
+	if ok {
+		c.addLocation = codeLocation{
+			file: file,
+			line: line,
+		}
+	}
+	cr.calls = append(cr.calls, c)
 	return cr
 }
 
