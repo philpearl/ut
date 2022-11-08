@@ -617,9 +617,18 @@ func generateMockFromAst(o *options, node ast.Node) bool {
 
 	if v.interfaceType != nil {
 		// We found our interface!
+		var err error
 		code := buildMockForInterface(o, v.interfaceType, v.imports, node)
 
-		err := ioutil.WriteFile(o.outfile, code, 0o666)
+		if o.gofmt {
+			code, err = format.Source(code)
+			if err != nil {
+				fmt.Printf("Failed to apply gofmt formatting for the source code for %s: %v", o.outfile, err)
+				os.Exit(1)
+			}
+		}
+
+		err = ioutil.WriteFile(o.outfile, code, 0o666)
 		if err != nil {
 			fmt.Printf("Failed to open %s for writing", o.outfile)
 			os.Exit(2)
@@ -672,6 +681,8 @@ type options struct {
 	mockName string
 	// Name of the package the mock should be created in
 	targetPackage string
+	// Format the generated mock file with `gofmt`?
+	gofmt bool
 
 	pkg *build.Package
 }
@@ -715,6 +726,7 @@ func (o *options) setup() {
 	flag.StringVar(&o.outfile, "outfile", "", "The file to create the mock in. By default will use mock<interface>.go in the current directory.")
 	flag.StringVar(&o.mockName, "mock", "", "The name for the mock class. By default will use Mock<interface>.")
 	flag.StringVar(&o.targetPackage, "mock-package", "", "Package name to use for the mock file; Must be specified.")
+	flag.BoolVar(&o.gofmt, "gofmt", false, "Format the mock files with gofmt? (Default: false.)")
 }
 
 func main() {
