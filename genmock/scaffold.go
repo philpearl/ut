@@ -15,11 +15,11 @@ import (
 // func NewmockName(t *testing.T) *mockName {
 //   return &mockName{ut.NewCallRecords(t)}
 // }
-// func (m *mockName) AddCall(name string, params ...interface{}) ut.CallTracker {
+// func (m *mockName) AddCall(name string, params ...any) ut.CallTracker {
 //   m.CallTracker.AddCall(name, params)
 //   return m
 // }
-// func (m *mockName) SetReturns(params ...interface{}) ut.CallTracker {
+// func (m *mockName) SetReturns(params ...any) ut.CallTracker {
 //   m.CallTracker.SetReturns(params)
 //   return m
 // }
@@ -118,7 +118,7 @@ func genBasicDecls(mockName string, methodNames []string) []ast.Decl {
 								ast.NewIdent("params"),
 							},
 							Type: &ast.Ellipsis{
-								Elt: ast.NewIdent("interface{}"),
+								Elt: ast.NewIdent("any"),
 							},
 						},
 					},
@@ -225,7 +225,7 @@ func genBasicDecls(mockName string, methodNames []string) []ast.Decl {
 								ast.NewIdent("params"),
 							},
 							Type: &ast.Ellipsis{
-								Elt: ast.NewIdent("interface{}"),
+								Elt: ast.NewIdent("any"),
 							},
 						},
 					},

@@ -339,7 +339,7 @@ return values.  So instead we do
 
 ... and we might have an ellipsis parameter so in fact we do
 
-	ut__params := make([]interface{}, 2)
+	ut__params := make([]any, 2)
 	ut__params[0] = param1
 	ut__params[1] = param2
 	r := ut.TrackCall("method", ut__params...)
@@ -393,13 +393,13 @@ func buildMockMethod(recv *ast.FieldList, name string, t *ast.FuncType) *ast.Fun
 // storeParams handles parameters
 //
 // If the parameters include an ellipsis we need to copy parameters into
-// an interface{} array as follows.
+// an `any` array as follows.
 //
-//  params := []interface{}{}
+//  params := []any{}
 //  params[0] = p1
 //  params[1] = p2
 //  for i, p := range ellipsisParam {
-//      params[2+i]	= p
+//      params[2+i] = p
 //  }
 //
 // If not it is better to add the params to the call directly for performance
@@ -418,7 +418,7 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 						&ast.CallExpr{
 							Fun: ast.NewIdent("make"),
 							Args: []ast.Expr{
-								&ast.ArrayType{Elt: ast.NewIdent("interface{}")},
+								&ast.ArrayType{Elt: ast.NewIdent("any")},
 								&ast.BinaryExpr{
 									X:  &ast.BasicLit{Kind: token.INT, Value: fmt.Sprintf("%d", params.NumFields()-1)},
 									Op: token.ADD,
