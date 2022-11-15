@@ -40,15 +40,15 @@ import (
 //   }
 type CallTracker interface {
 	// AddCall() is used by tests to add an expected call to the tracker
-	AddCall(name string, params ...interface{}) CallTracker
+	AddCall(name string, params ...any) CallTracker
 
 	// SetReturns() is called immediately after AddCall() to set the return
 	// values for the call.
-	SetReturns(returns ...interface{}) CallTracker
+	SetReturns(returns ...any) CallTracker
 
 	// TrackCall() is called within mocks to track a call to the Mock. It
 	// returns the return values registered via SetReturns()
-	TrackCall(name string, params ...interface{}) []interface{}
+	TrackCall(name string, params ...any) []any
 
 	// AssertDone() should be called at the end of a test to confirm all
 	// the expected calls have been made
@@ -61,20 +61,20 @@ type CallTracker interface {
 	// the same each time.
 	// Note that the ordering of recorded calls relative to other calls is not
 	// tracked.
-	RecordCall(name string, returns ...interface{}) CallTracker
+	RecordCall(name string, returns ...any) CallTracker
 
 	// GetRecordedParams returns the sets of parameters passed to a call captured
 	// via RecordCall
-	GetRecordedParams(name string) ([][]interface{}, bool)
+	GetRecordedParams(name string) ([][]any, bool)
 }
 
 type callRecord struct {
 	name    string
-	params  []interface{}
-	returns []interface{}
+	params  []any
+	returns []any
 }
 
-func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
+func (e *callRecord) assert(t testing.TB, name string, params ...any) {
 	if name != e.name {
 		t.Logf("Expected call to %s%s", e.name, paramsToString(e.params))
 		t.Logf(" got call to %s%s", name, paramsToString(params))
@@ -98,7 +98,7 @@ func (e *callRecord) assert(t testing.TB, name string, params ...interface{}) {
 		}
 
 		switch ep := ep.(type) {
-		case func(actual interface{}):
+		case func(actual any):
 			ep(ap)
 		default:
 			if !reflect.DeepEqual(ap, ep) {
@@ -122,7 +122,7 @@ func showStack(t testing.TB) {
 	}
 }
 
-func paramsToString(params []interface{}) string {
+func paramsToString(params []any) string {
 	w := &bytes.Buffer{}
 	w.WriteString("(")
 	l := len(params)
@@ -140,9 +140,9 @@ func paramsToString(params []interface{}) string {
 // user choses to record calls for a method rather than assert them
 type recording struct {
 	// The returned values are the same for each call to a recorded method.
-	returns []interface{}
+	returns []any
 	// We record the parameters from each call to the method.
-	params [][]interface{}
+	params [][]any
 }
 
 type callRecords struct {
@@ -161,25 +161,25 @@ func NewCallRecords(t testing.TB) CallTracker {
 	}
 }
 
-func (cr *callRecords) AddCall(name string, params ...interface{}) CallTracker {
+func (cr *callRecords) AddCall(name string, params ...any) CallTracker {
 	cr.calls = append(cr.calls, callRecord{name: name, params: params})
 	return cr
 }
 
-func (cr *callRecords) RecordCall(name string, returns ...interface{}) CallTracker {
+func (cr *callRecords) RecordCall(name string, returns ...any) CallTracker {
 	cr.records[name] = &recording{
 		returns: returns,
-		params:  make([][]interface{}, 0),
+		params:  make([][]any, 0),
 	}
 	return cr
 }
 
-func (cr *callRecords) SetReturns(returns ...interface{}) CallTracker {
+func (cr *callRecords) SetReturns(returns ...any) CallTracker {
 	cr.calls[len(cr.calls)-1].returns = returns
 	return cr
 }
 
-func (cr *callRecords) TrackCall(name string, params ...interface{}) []interface{} {
+func (cr *callRecords) TrackCall(name string, params ...any) []any {
 	cr.Lock()
 	defer cr.Unlock()
 	if record, ok := cr.records[name]; ok {
@@ -216,7 +216,7 @@ func (cr *callRecords) AssertDone() {
 	}
 }
 
-func (cr *callRecords) GetRecordedParams(name string) ([][]interface{}, bool) {
+func (cr *callRecords) GetRecordedParams(name string) ([][]any, bool) {
 	cr.Lock()
 	defer cr.Unlock()
 	record, ok := cr.records[name]
@@ -227,7 +227,7 @@ func (cr *callRecords) GetRecordedParams(name string) ([][]interface{}, bool) {
 }
 
 // NilOrError is a utility function for returning err from mocked methods
-func NilOrError(val interface{}) error {
+func NilOrError(val any) error {
 	if val == nil {
 		return nil
 	}

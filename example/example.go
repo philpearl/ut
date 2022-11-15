@@ -2,12 +2,11 @@ package example
 
 //go:generate genmock -package=github.com/philpearl/ut/example -interface=Fred -mock-package=example
 
-type George struct {
-}
+type George struct{}
 
 type Fred interface {
 	sanit(blah string)
-	iit(fred interface{})
+	iit(fred any)
 	many(things ...string)
 	doit(blah string) int
 	donit(blah, fah string) (int, error)

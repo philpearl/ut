@@ -15,7 +15,7 @@ type MockInterface4 struct {
 func NewMockInterface4(t *testing.T) *MockInterface4 {
 	return &MockInterface4{ut.NewCallRecords(t)}
 }
-func (m *MockInterface4) AddCall(name string, params ...interface{}) ut.CallTracker {
+func (m *MockInterface4) AddCall(name string, params ...any) ut.CallTracker {
 	switch name {
 	case "Method1", "Method2", "Method3", "Method4":
 		break
@@ -25,7 +25,7 @@ func (m *MockInterface4) AddCall(name string, params ...interface{}) ut.CallTrac
 	m.CallTracker.AddCall(name, params...)
 	return m
 }
-func (m *MockInterface4) SetReturns(params ...interface{}) ut.CallTracker {
+func (m *MockInterface4) SetReturns(params ...any) ut.CallTracker {
 	m.CallTracker.SetReturns(params...)
 	return m
 }

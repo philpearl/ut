@@ -117,7 +117,7 @@ func TestUnderTest(t *testing.T) {
 
 		// Parameters for AddCall can either be: values, which are compared against the actual parameter;
 		// or functions, which can check and act on the parameter as they like
-		checkReadParam := func(p interface{}) {
+		checkReadParam := func(p any) {
 			buf := p.([]byte)
 			if len(buf) != 10 {
 				t.Fatalf("should have read 10 bytes")
