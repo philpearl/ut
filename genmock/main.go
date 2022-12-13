@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	gofumpt "mvdan.cc/gofumpt/format"
 )
 
 // blockVisitor walks the AST and extracts the first Block Statement it finds.
@@ -321,7 +323,9 @@ func buildMethodReceiver(name string) *ast.FieldList {
 	}
 }
 
-/* buildMockMethod builds the AST for the mock method.
+/*
+	buildMockMethod builds the AST for the mock method.
+
 The function body needs to look something like:
 
 	r := ut.TrackCall("method", param1, param2)
@@ -395,12 +399,12 @@ func buildMockMethod(recv *ast.FieldList, name string, t *ast.FuncType) *ast.Fun
 // If the parameters include an ellipsis we need to copy parameters into
 // an `any` array as follows.
 //
-//  params := []any{}
-//  params[0] = p1
-//  params[1] = p2
-//  for i, p := range ellipsisParam {
-//      params[2+i] = p
-//  }
+//	params := []any{}
+//	params[0] = p1
+//	params[1] = p2
+//	for i, p := range ellipsisParam {
+//	    params[2+i] = p
+//	}
 //
 // If not it is better to add the params to the call directly for performance
 // reasons
@@ -493,7 +497,8 @@ func storeParams(params *ast.FieldList) ([]ast.Stmt, bool, error) {
 // trackCall builds the ast for the call expression.
 //
 // The call looks like
-//     r := i.TrackCall("method", params...)
+//
+//	r := i.TrackCall("method", params...)
 //
 // If there are no return values r := is omitted
 func trackCall(numReturns int, methodName string, ellipsis bool, params *ast.FieldList) ([]ast.Stmt, error) {
@@ -535,7 +540,6 @@ func trackCall(numReturns int, methodName string, ellipsis bool, params *ast.Fie
 }
 
 // declReturnValues builds the return part of the call
-//
 func declReturnValues(results *ast.FieldList) ([]ast.Stmt, error) {
 	if results.NumFields() == 0 {
 		return nil, nil
@@ -620,7 +624,7 @@ func generateMockFromAst(o *options, node ast.Node) bool {
 		var err error
 		code := buildMockForInterface(o, v.interfaceType, v.imports, node)
 
-		code, err = format.Source(code)
+		code, err = gofumpt.Source(code, gofumpt.Options{LangVersion: "1.19", ExtraRules: true})
 		if err != nil {
 			fmt.Printf("Failed to apply gofmt formatting for the source code for %s: %v", o.outfile, err)
 			os.Exit(1)

@@ -4,8 +4,9 @@ package testcode
 
 import (
 	"fmt"
-	"github.com/philpearl/ut"
 	"testing"
+
+	"github.com/philpearl/ut"
 )
 
 type MockInterface4 struct {
@@ -15,6 +16,7 @@ type MockInterface4 struct {
 func NewMockInterface4(t *testing.T) *MockInterface4 {
 	return &MockInterface4{ut.NewCallRecords(t)}
 }
+
 func (m *MockInterface4) AddCall(name string, params ...any) ut.CallTracker {
 	switch name {
 	case "Method1", "Method2", "Method3", "Method4":
@@ -25,10 +27,12 @@ func (m *MockInterface4) AddCall(name string, params ...any) ut.CallTracker {
 	m.CallTracker.AddCall(name, params...)
 	return m
 }
+
 func (m *MockInterface4) SetReturns(params ...any) ut.CallTracker {
 	m.CallTracker.SetReturns(params...)
 	return m
 }
+
 func (i *MockInterface4) Method4(value4 string) error {
 	r := i.TrackCall("Method4", value4)
 	var r_0 error
@@ -37,6 +41,7 @@ func (i *MockInterface4) Method4(value4 string) error {
 	}
 	return r_0
 }
+
 func (i *MockInterface4) Method1(value1 string) error {
 	r := i.TrackCall("Method1", value1)
 	var r_0 error
@@ -45,6 +50,7 @@ func (i *MockInterface4) Method1(value1 string) error {
 	}
 	return r_0
 }
+
 func (i *MockInterface4) Method2(value2 string) error {
 	r := i.TrackCall("Method2", value2)
 	var r_0 error
@@ -53,6 +59,7 @@ func (i *MockInterface4) Method2(value2 string) error {
 	}
 	return r_0
 }
+
 func (i *MockInterface4) Method3(value3 string) error {
 	r := i.TrackCall("Method3", value3)
 	var r_0 error
