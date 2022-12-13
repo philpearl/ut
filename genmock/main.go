@@ -622,6 +622,11 @@ func generateMockFromAst(o *options, node ast.Node) bool {
 	if v.interfaceType != nil {
 		// We found our interface!
 		var err error
+
+		// We want the package imports to be ordered consistently. This is so that
+		// calling `genmock` is idempotent.
+		sort.Slice(v.imports, func(i, j int) bool { return v.imports[i].Path.Value < v.imports[j].Path.Value })
+
 		code := buildMockForInterface(o, v.interfaceType, v.imports, node)
 
 		code, err = gofumpt.Source(code, gofumpt.Options{LangVersion: "1.19", ExtraRules: true})
