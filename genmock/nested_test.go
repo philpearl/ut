@@ -1,10 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestNestedInterfaces(t *testing.T) {
@@ -41,7 +42,7 @@ func assertFileContent(t *testing.T, actFile, expFile string) {
 		t.Fatalf("Error opening file: %s", err)
 	}
 
-	if !bytes.Equal(exp, act) {
-		t.Fatalf("Expected contents of file %s to equal %s but they were not.", actFile, expFile)
+	if diff := cmp.Diff(string(exp), string(act)); diff != "" {
+		t.Fatalf("Expected contents of file %s to equal %s but they were not. %s", actFile, expFile, diff)
 	}
 }

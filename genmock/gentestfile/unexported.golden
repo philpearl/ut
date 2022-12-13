@@ -4,8 +4,8 @@ package testcode
 
 import (
 	"fmt"
-	"testing"
 	"github.com/philpearl/ut"
+	"testing"
 )
 
 type mockInterface4 struct {
