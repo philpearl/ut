@@ -49,7 +49,7 @@ type MyInterface {
 This example is implemented as a test in this package. It creates a mock io.Reader, and tests the function UnderTest(). In this case I've built the mock by
 hand so you can see what kind of code genmock will generate.
 
-Please also take a look at the example in https://github.com/philpearl/ut/example
+Please also take a look at the example in [https://github.com/philpearl/ut/example](https://github.com/philpearl/ut/tree/master/example)
 
 You could also generate this mock with `genmock -package=io -interface=Reader -mock-package=ut`
 
