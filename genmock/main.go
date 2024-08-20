@@ -9,7 +9,6 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -629,14 +628,13 @@ func generateMockFromAst(o *options, node ast.Node) bool {
 
 		code := buildMockForInterface(o, v.interfaceType, v.imports, node)
 
-		code, err = gofumpt.Source(code, gofumpt.Options{LangVersion: "1.19", ExtraRules: true})
+		code, err = gofumpt.Source(code, gofumpt.Options{LangVersion: "go1.23.0", ExtraRules: true})
 		if err != nil {
 			fmt.Printf("Failed to apply gofumpt formatting for the source code for %s: %v", o.outfile, err)
 			os.Exit(1)
 		}
 
-		err = ioutil.WriteFile(o.outfile, code, 0o666)
-		if err != nil {
+		if err := os.WriteFile(o.outfile, code, 0o666); err != nil {
 			fmt.Printf("Failed to open %s for writing", o.outfile)
 			os.Exit(2)
 		}
